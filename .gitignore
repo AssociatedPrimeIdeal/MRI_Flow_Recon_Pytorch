@@ -32,3 +32,5 @@ dist/
 *.nii
 *.nii.gz
 *.mat
+.gitignore
+@eaDir
