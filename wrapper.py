@@ -1,6 +1,6 @@
 from utils import *
 
-def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda', verbose=0, stopth=1e-3):
+def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda', verbose=0, stopth=1e-3, stoptolerance=5):
     """
     Perform LLR based reconstruction.
 
@@ -15,6 +15,7 @@ def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda
         verbose : Verbosity level, where 0 means silent. Defaults to 0.
         stopth : Stopping threshold for iterative convergence. Defines the minimum relative change in reconstruction error required to continue iterations.
     """
+    consecutive_count = 0
     Nv, Nt, Nc, FE, PE, SPE = kspc.shape
     kspc = torch.as_tensor(np.ascontiguousarray(kspc)).to(torch.complex64).to(device)
     csm = torch.as_tensor(np.ascontiguousarray(csm)).to(torch.complex64).to(device)
@@ -61,8 +62,12 @@ def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
             loss_prev = loss
     elif itmethod == 'FISTA':
         tp = 1
@@ -87,8 +92,12 @@ def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
             loss_prev = loss
     elif itmethod == 'POGM':
         tp = 1
@@ -118,12 +127,16 @@ def ReconLLR(kspc, csm, reg, blk=-1, itmethod='POGM', it=10, Lc=2., device='cuda
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
             loss_prev = loss
     return X * regFactor
 
-def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10, Lc=2., device='cuda', verbose=0, stopth=1e-3):
+def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10, Lc=2., device='cuda', verbose=0, stopth=1e-3, stoptolerance=5):
     """
     Perform L+S based reconstruction.
 
@@ -140,6 +153,8 @@ def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10
         verbose : Verbosity level, where 0 means silent. Defaults to 0.
         stopth : Stopping threshold for iterative convergence. Defines the minimum relative change in reconstruction error required to continue iterations.
     """
+    consecutive_count = 0
+
     Nv, Nt, Nc, FE, PE, SPE = kspc.shape
     kspc = torch.as_tensor(np.ascontiguousarray(kspc)).to(torch.complex64).to(device)
     csm = torch.as_tensor(np.ascontiguousarray(csm)).to(torch.complex64).to(device)
@@ -196,9 +211,13 @@ def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR), 'loss_S': '{:.5f}'.format(loss_S)}) 
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss 
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss
     elif itmethod == 'FISTA':
         tp = 1
         X = A.mtimes(kspc, 1)
@@ -227,9 +246,13 @@ def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR), 'loss_S': '{:.5f}'.format(loss_S)}) 
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss   
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss 
     elif itmethod == 'POGM':
         tp = 1
         gp = 1
@@ -266,12 +289,16 @@ def ReconLplusS(kspc, csm, regL, regS, blk=-1,HADAMARD=0, itmethod='POGM', it=10
             loop.set_postfix({'loss': '{:.5f}'.format(loss),'loss_DC': '{:.5f}'.format(loss_DC), 'loss_LR': '{:.5f}'.format(loss_LR), 'loss_S': '{:.5f}'.format(loss_S)}) 
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss     
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss  
     return X * regFactor
 
-def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda', verbose=0, stopth=1e-3):
+def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda', verbose=0, stopth=1e-3, stoptolerance=5):
     """
     Perform HAAR Wavelet based reconstruction.
 
@@ -286,6 +313,7 @@ def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda',
         verbose : Verbosity level, where 0 means silent. Defaults to 0.
         stopth : Stopping threshold for iterative convergence. Defines the minimum relative change in reconstruction error required to continue iterations.
     """
+    consecutive_count = 0
     Nv, Nt, Nc, FE, PE, SPE = kspc.shape
     kspc = torch.as_tensor(np.ascontiguousarray(kspc)).to(torch.complex64).to(device)
     csm = torch.as_tensor(np.ascontiguousarray(csm)).to(torch.complex64).to(device)
@@ -310,9 +338,13 @@ def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda',
             loop.set_postfix({'loss': '{:.5f}'.format(loss), 'loss_DC': '{:.5f}'.format(loss_DC), 'loss_H': '{:.5f}'.format(loss_H)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss 
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss
 
     elif itmethod == 'FISTA':
         tp = 1
@@ -333,9 +365,13 @@ def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda',
             loop.set_postfix({'loss': '{:.5f}'.format(loss), 'loss_DC': '{:.5f}'.format(loss_DC), 'loss_H': '{:.5f}'.format(loss_H)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss  
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss
     elif itmethod == 'POGM':
         tp = 1
         gp = 1
@@ -360,25 +396,29 @@ def ReconHAAR(kspc, csm, reg_list, itmethod='POGM', it=10, Lc=1., device='cuda',
             loop.set_postfix({'loss': '{:.5f}'.format(loss), 'loss_DC': '{:.5f}'.format(loss_DC), 'loss_H': '{:.5f}'.format(loss_H)})  
             if loss_prev is not None:
                 relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
-                if np.abs(relerr) < stopth:
-                    break
-            loss_prev = loss  
+                if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                    consecutive_count += 1 
+                    if consecutive_count >= stoptolerance:
+                        break  
+                else:
+                    consecutive_count = 0 
+            loss_prev = loss
     return X
 
 
-
-def ReconHAAR_CORE(y, csm, gStp,  mu1, mu2, lam1, lam2, oIter=10, iIter=10,device='cuda',verbose=0, stopth=1e-3):
+def ReconHAAR_CORE(y, csm, gStp,  mu1, mu2, lam1, lam2, oIter=10, iIter=10,device='cuda',verbose=0, stopth=1e-3, stoptolerance=5):
     """
     Perform CORE based reconstruction.
     Reference : https://github.com/OSU-MR/motion-robust-CMR
     """
+    consecutive_count = 0
     Nv, Nt, Nc, FE, PE, SPE = y.shape
     y = torch.as_tensor(np.ascontiguousarray(y)).to(torch.complex64).to(device)
     csm = torch.as_tensor(np.ascontiguousarray(csm)).to(torch.complex64).to(device)
     us_mask = (torch.abs(y[:, :, 0:1, FE // 2:FE // 2 + 1]) > 0).to(torch.float32).to(device)
     print("LOAD KSPC SHAPE", y.shape, "LOAD CSM SHAPE", csm.shape, 'US RATE:', 1/torch.mean(us_mask))
-    rcomb = torch.sum(k2i_torch(y, ax=[-3, -2, -1]) * torch.conj(csm), -4)
-    regFactor = torch.max(torch.abs(rcomb))
+    # rcomb = torch.sum(k2i_torch(y, ax=[-3, -2, -1]) * torch.conj(csm), -4)
+    regFactor = torch.max(torch.abs(y))
     y /= regFactor
     A = Eop(csm, us_mask)
     u = A.mtimes(y, 1)
@@ -423,14 +463,19 @@ def ReconHAAR_CORE(y, csm, gStp,  mu1, mu2, lam1, lam2, oIter=10, iIter=10,devic
         for k in range(16):
             objW += torch.sum(torch.abs(lam1[k] * Wdecu.view(16, -1)[k]))
         objV = torch.sum(lam2 * torch.sqrt(torch.sum(torch.abs(v.view(FE, -1)) ** 2, dim=1)))
-        obj = objA + objW + objV
-        loop.set_postfix({'obj': '{:.5f}'.format(obj.item()), 'objA': '{:.5f}'.format(objA), 'objW': '{:.5f}'.format(objW),'objV': '{:.5f}'.format(objV)})  
+        loss = objA + objW + objV
+        loss = loss.item()
+        loop.set_postfix({'loss': '{:.5f}'.format(loss), 'objA': '{:.5f}'.format(objA), 'objW': '{:.5f}'.format(objW),'objV': '{:.5f}'.format(objV)})  
         del Au
         del Wdecu
         if loss_prev is not None:
-            relerr = np.abs(obj.item() - loss_prev) / np.abs(loss_prev)
-            if np.abs(relerr) < stopth:
-                break
-        loss_prev = obj.item()
+            relerr = np.abs(loss - loss_prev) / np.abs(loss_prev)
+            if np.abs(relerr) < stopth or (loss - loss_prev) > 0:
+                consecutive_count += 1 
+                if consecutive_count >= stoptolerance:
+                    break  
+            else:
+                consecutive_count = 0 
+        loss_prev = loss
 
     return u, v.reshape(Nv, Nt, Nc, FE, PE, SPE)
