@@ -418,7 +418,7 @@ def ReconHAAR_CORE(y, csm, gStp,  mu1, mu2, lam1, lam2, oIter=10, iIter=10,devic
     us_mask = (torch.abs(y[:, :, 0:1, FE // 2:FE // 2 + 1]) > 0).to(torch.float32).to(device)
     print("LOAD KSPC SHAPE", y.shape, "LOAD CSM SHAPE", csm.shape, 'US RATE:', 1/torch.mean(us_mask))
     # rcomb = torch.sum(k2i_torch(y, ax=[-3, -2, -1]) * torch.conj(csm), -4)
-    regFactor = torch.max(torch.abs(y))
+    regFactor = torch.max(torch.abs(y))*0.1
     y /= regFactor
     A = Eop(csm, us_mask)
     u = A.mtimes(y, 1)
